@@ -14,7 +14,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|_app| {
             tauri::async_runtime::spawn(async {
-                initialize_launcher().await.unwrap();
+                // im that lazy, yes
+                if online::check(None).is_ok() {
+                    initialize_launcher().await.unwrap();
+                }
             });
             Ok(())
         })

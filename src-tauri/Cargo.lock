@@ -2249,6 +2249,7 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "once_cell",
+ "online",
  "reqwest",
  "serde",
  "serde_json",
@@ -2495,6 +2496,12 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "online"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "644d4b55e7e65885eba895f7958912e86eb04370d858a28779860223a8b5ec43"
 
 [[package]]
 name = "open"
