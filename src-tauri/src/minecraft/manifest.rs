@@ -6,15 +6,15 @@ use std::sync::Mutex;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VersionManifest {
-    versions: Vec<Version>,
+    pub versions: Vec<Version>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Version {
-    id: String,
-    url: String,
-    sha1: String,
-    r#type: String,
+    pub id: String,
+    pub url: String,
+    pub sha1: String,
+    pub r#type: String,
 }
 
 pub static VERSIONS: Lazy<Mutex<Option<VersionManifest>>> = Lazy::new(|| Mutex::new(None));
