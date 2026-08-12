@@ -1,3 +1,4 @@
+mod launcher;
 mod minecraft;
 
 use crate::minecraft::manifest::{fetch_versions, get_versions};
