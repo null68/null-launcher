@@ -20,13 +20,17 @@ pub struct DownloadObject {
 impl DownloadObject {
     // tried to implement this with a .part file so if the users pc crashes or smth the download can continue, but i found out mojangs servers dont support http range :/
     pub async fn download_file(&self) -> Result<(), Box<dyn Error>> {
-        if self.file_path.exists() {
+        let minecraft_dir = dirs::home_dir()
+            .ok_or("home dir dont exists")?
+            .join(".minecraft");
+        let file_path = minecraft_dir.join(&self.file_path);
+        if file_path.exists() {
             if let Some(size) = self.size {
-                let metadata = fs::metadata(&self.file_path)?;
+                let metadata = fs::metadata(&file_path)?;
 
                 if size == metadata.len() {
                     if let Some(sha1) = &self.sha1 {
-                        let bytes = fs::read(&self.file_path)?;
+                        let bytes = fs::read(&file_path)?;
                         let mut hasher = Sha1::new();
 
                         hasher.update(&bytes);
@@ -42,14 +46,14 @@ impl DownloadObject {
             }
         }
 
-        if let Some(parent) = self.file_path.parent() {
+        if let Some(parent) = file_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
         // 26.2.jar.part
-        let part = self.file_path.with_extension(format!(
+        let part = file_path.with_extension(format!(
             "{}.part",
-            self.file_path
+            file_path
                 .extension()
                 .and_then(|extension| extension.to_str())
                 .unwrap_or("")
@@ -96,7 +100,7 @@ impl DownloadObject {
             }
         }
 
-        rename(&part, &self.file_path)?;
+        rename(&part, file_path)?;
         Ok(())
     }
 }
