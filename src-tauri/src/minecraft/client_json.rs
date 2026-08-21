@@ -37,7 +37,7 @@ pub struct ClientJson {
 pub struct JavaVersion {
     pub component: String,
     #[serde(rename = "majorVersion")]
-    pub majorVersion: u32,
+    pub major_version: u32,
 }
 
 #[derive(Serialize, Deserialize)]
