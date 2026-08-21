@@ -14,9 +14,9 @@ pub async fn install_version(version: &Version) -> Result<(), Box<dyn Error>> {
 
     let client_json = fetch_or_get_client_json(version, &versions_dir).await?;
 
-    install_client_jar(&client_json, version).await?;
+    // install_client_jar(&client_json, version).await?;
 
-    install_libraries(&client_json).await?;
+    // install_libraries(&client_json).await?;
 
     install_assets(&client_json).await?;
 

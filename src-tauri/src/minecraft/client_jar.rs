@@ -1,13 +1,17 @@
 use std::{error::Error, path::PathBuf};
 
+use tauri::AppHandle;
+
 use crate::{
-    launcher::download::DownloadObject,
+    launcher::{download::DownloadObject, progress::Progress},
     minecraft::{client_json::ClientJson, manifest::Version},
 };
 
 pub async fn install_client_jar(
     client_json: &ClientJson,
     version: &Version,
+    progress: &mut Progress,
+    app: &AppHandle,
 ) -> Result<(), Box<dyn Error>> {
     let client = &client_json.downloads.client;
 
@@ -19,6 +23,7 @@ pub async fn install_client_jar(
     };
 
     download_obj.download_file().await?;
+    progress.add_file(app, client.size);
 
     Ok(())
 }

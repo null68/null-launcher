@@ -1,11 +1,18 @@
+use tauri::AppHandle;
+
 use crate::launcher::download::DownloadObject;
+use crate::launcher::progress::Progress;
 use crate::minecraft::client_json::ClientJson;
 use crate::minecraft::client_json::Rule;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 
-pub async fn install_libraries(client_json: &ClientJson) -> Result<(), Box<dyn Error>> {
+pub async fn install_libraries(
+    client_json: &ClientJson,
+    progress: &mut Progress,
+    app: &AppHandle,
+) -> Result<(), Box<dyn Error>> {
     let features = HashMap::new(); // idk will it support quick play ill see
     for library in &client_json.libraries {
         if !is_library_allowed(&library.rules, &features) {
@@ -21,6 +28,7 @@ pub async fn install_libraries(client_json: &ClientJson) -> Result<(), Box<dyn E
             };
 
             download_obj.download_file().await?;
+            progress.add_file(app, artifact.size);
         }
     }
 
