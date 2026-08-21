@@ -29,7 +29,20 @@ impl Progress {
     pub fn add_file(&mut self, app: &AppHandle, size: u64) {
         self.downloaded_bytes += size;
         self.files_done += 1;
+        self.emit(app);
+    }
 
+    pub fn add_bytes(&mut self, app: &AppHandle, bytes: u64) {
+        self.downloaded_bytes += bytes;
+        self.emit(app);
+    }
+
+    pub fn finish_file(&mut self, app: &AppHandle) {
+        self.files_done += 1;
+        self.emit(app);
+    }
+
+    fn emit(&self, app: &AppHandle) {
         let _ = app.emit(
             "install-progress",
             ProgressPayload {

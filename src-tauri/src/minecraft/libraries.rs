@@ -26,8 +26,8 @@ pub async fn install_libraries(
                 sha1: Some(artifact.sha1.clone()),
                 file_path: PathBuf::from("libraries").join(&artifact.path),
             };
-
-            download_obj.download_file().await?;
+            // libraries are small in size (i think) so callback function and updating on_chunk will not be necessary
+            download_obj.download_file(|_| {}).await?;
             progress.add_file(app, artifact.size);
         }
     }

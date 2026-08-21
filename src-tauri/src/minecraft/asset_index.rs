@@ -30,7 +30,7 @@ pub async fn fetch_asset_index(
         file_path: index_path.clone(),
     };
 
-    download_object.download_file().await?;
+    download_object.download_file(|_| {}).await?;
 
     let bytes = fs::read(&index_path)?;
     Ok(Some(serde_json::from_slice::<AssetIndexJson>(&bytes)?))
@@ -56,7 +56,7 @@ pub async fn install_assets(
             file_path: PathBuf::from(format!("assets/objects/{}/{}", hash_prefix, hash)),
         };
 
-        asset_download_object.download_file().await?;
+        asset_download_object.download_file(|_| {}).await?;
         progress.add_file(app, size);
     }
     Ok(())

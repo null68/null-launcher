@@ -22,7 +22,9 @@ pub async fn install_client_jar(
         file_path: PathBuf::from(format!("versions/{}/{}.jar", version.id, version.id)),
     };
 
-    download_obj.download_file().await?;
+    download_obj
+        .download_file(|n| progress.add_bytes(app, n))
+        .await?;
     progress.add_file(app, client.size);
 
     Ok(())

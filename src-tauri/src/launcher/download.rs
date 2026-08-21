@@ -19,7 +19,7 @@ pub struct DownloadObject {
 
 impl DownloadObject {
     // tried to implement this with a .part file so if the users pc crashes or smth the download can continue, but i found out mojangs servers dont support http range :/
-    pub async fn download_file(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn download_file(&self, mut on_chunk: impl FnMut(u64)) -> Result<(), Box<dyn Error>> {
         let minecraft_dir = dirs::home_dir()
             .ok_or("home dir dont exists")?
             .join(".minecraft");
@@ -37,9 +37,11 @@ impl DownloadObject {
                         let hash = hasher.finalize();
                         let hash = hex::encode(hash);
                         if sha1 == &hash {
+                            on_chunk(size);
                             return Ok(());
                         }
                     } else {
+                        on_chunk(size);
                         return Ok(());
                     }
                 }
@@ -79,6 +81,7 @@ impl DownloadObject {
 
             hasher.update(&chunk);
             downloaded_bytes += chunk.len() as u64;
+            on_chunk(chunk.len() as u64);
         }
 
         file.flush()?;
