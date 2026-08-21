@@ -1,7 +1,9 @@
+use crate::launcher::progress::Progress;
 use crate::{launcher::download::DownloadObject, minecraft::client_json::ClientJson};
 use serde::{self, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{error::Error, fs, path::PathBuf};
+use tauri::AppHandle;
 
 #[derive(Serialize, Deserialize)]
 pub struct AssetIndexJson {
@@ -13,9 +15,12 @@ pub struct AssetObject {
     pub hash: String,
     pub size: u64,
 }
-pub async fn install_assets(client_json: &ClientJson) -> Result<(), Box<dyn Error>> {
+
+pub async fn fetch_asset_index(
+    client_json: &ClientJson,
+) -> Result<Option<AssetIndexJson>, Box<dyn Error>> {
     let Some(asset_index) = &client_json.asset_index else {
-        return Ok(());
+        return Ok(None);
     };
     let index_path = PathBuf::from(format!("assets/indexes/{}.json", asset_index.id));
     let download_object = DownloadObject {
@@ -28,28 +33,31 @@ pub async fn install_assets(client_json: &ClientJson) -> Result<(), Box<dyn Erro
     download_object.download_file().await?;
 
     let bytes = fs::read(&index_path)?;
+    Ok(Some(serde_json::from_slice::<AssetIndexJson>(&bytes)?))
+}
 
-    let asset_index_json = serde_json::from_slice::<AssetIndexJson>(&bytes)?;
-    for (_, object) in asset_index_json.objects {
-        let hash = object.hash;
+pub async fn install_assets(
+    asset_index_json: &AssetIndexJson,
+    progress: &mut Progress,
+    app: &AppHandle,
+) -> Result<(), Box<dyn Error>> {
+    for (_, object) in &asset_index_json.objects {
+        let hash = &object.hash;
         let size = object.size;
-
         let hash_prefix = &hash[0..2];
-        let asset_path = PathBuf::from(format!("assets/objects/{}/{}", hash_prefix, hash));
-
-        let url = format!(
-            "https://resources.download.minecraft.net/{}/{}",
-            hash_prefix, hash
-        );
 
         let asset_download_object = DownloadObject {
-            url: url,
+            url: format!(
+                "https://resources.download.minecraft.net/{}/{}",
+                hash_prefix, hash
+            ),
             size: Some(size),
-            sha1: Some(hash),
-            file_path: asset_path,
+            sha1: Some(hash.clone()),
+            file_path: PathBuf::from(format!("assets/objects/{}/{}", hash_prefix, hash)),
         };
 
         asset_download_object.download_file().await?;
+        progress.add_file(app, size);
     }
     Ok(())
 }
