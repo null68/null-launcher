@@ -25,7 +25,7 @@ pub async fn install_client_jar(
     download_obj
         .download_file(|n| progress.add_bytes(app, n))
         .await?;
-    progress.add_file(app, client.size);
+    progress.finish_file(app);
 
     Ok(())
 }

@@ -130,11 +130,9 @@ pub struct OS {
     pub arch: Option<String>,
 }
 
-pub async fn fetch_or_get_client_json(
-    version: &Version,
-    path_to_versions_dir: &Path,
-) -> Result<ClientJson, Box<dyn Error>> {
-    let path_to_versions_dir = path_to_versions_dir.join(&version.id);
+pub async fn fetch_or_get_client_json(version: &Version) -> Result<ClientJson, Box<dyn Error>> {
+    let home = dirs::home_dir().ok_or("home dir doesn't exist")?;
+    let path_to_versions_dir = home.join(".minecraft/versions").join(&version.id);
     let path_to_version_json = path_to_versions_dir.join(format!("{}.json", version.id));
 
     if path_to_version_json.exists() {

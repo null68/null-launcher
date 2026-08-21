@@ -14,7 +14,7 @@ use crate::{
 };
 
 pub async fn install_version(app: &AppHandle, version: &Version) -> Result<(), Box<dyn Error>> {
-    let client_json = fetch_or_get_client_json(version, &PathBuf::from("versions")).await?;
+    let client_json = fetch_or_get_client_json(version).await?;
     let asset_index_json = fetch_asset_index(&client_json).await?;
 
     let features = HashMap::new();
