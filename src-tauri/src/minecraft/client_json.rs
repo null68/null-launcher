@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     error::Error,
     fs::{self, create_dir_all, remove_file, write},
-    path::Path,
 };
 
 use reqwest::Client;
