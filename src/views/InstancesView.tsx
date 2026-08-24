@@ -8,6 +8,8 @@ import { EmptyState } from "../components/EmptyState";
 import { ProgressBar } from "../components/ProgressBar";
 import { CubeIcon, DownloadIcon, PlayIcon, RefreshIcon } from "../components/icons";
 import type { InstallProgressPayload, VersionType } from "../types";
+import type { SelectOption } from "../components/Select";
+
 import "../styles/InstancesView.css";
 
 const TYPE_LABELS: Record<VersionType, string> = {
@@ -72,9 +74,15 @@ export function InstancesView() {
   }, []);
 
   const filteredVersions = useMemo(() => {
-    if (!manifest) return [];
-    return manifest.versions.filter((v) => activeTypes.has(v.type));
-  }, [manifest, activeTypes]);
+     if (!manifest) return [];
+     return manifest.versions.filter((v) => activeTypes.has(v.type));
+   }, [manifest, activeTypes]);
+
+   const instanceOptions: SelectOption[] = instances.map((i) => ({ value: i.id, label: i.id }));
+   const versionOptions: SelectOption[] = filteredVersions.map((v) => ({ value: v.id, label: v.id }));
+
+   const versionPlaceholder =
+     status === "loading" ? "Loading versions…" : status === "unavailable" ? "Couldn't load versions" : "Choose a version…";
 
   function toggleType(type: VersionType) {
     setActiveTypes((prev) => {
@@ -128,19 +136,10 @@ export function InstancesView() {
           <Select
             value={selectedInstanceId}
             onChange={setSelectedInstanceId}
+            options={instanceOptions}
+            placeholder={instancesLoading ? "Loading…" : "No versions yet"}
             disabled={instances.length === 0}
-            aria-label="Select instance"
-          >
-            {instances.length === 0 ? (
-              <option value="">{instancesLoading ? "Loading…" : "No versions yet"}</option>
-            ) : (
-              instances.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.id}
-                </option>
-              ))
-            )}
-          </Select>
+            aria-label="Select instance" />
         </div>
 
         <div className="toolbar-divider" />
@@ -167,29 +166,18 @@ export function InstancesView() {
             <Select
               value={versionToInstall}
               onChange={setVersionToInstall}
+              options={versionOptions}
+              placeholder={versionPlaceholder}
+              disabled={installing}
               className="version-select"
-              aria-label="Version to install"
-            >
-              <option value="">
-                {status === "loading"
-                  ? "Loading versions…"
-                  : status === "unavailable"
-                  ? "Couldn't load versions"
-                  : "Choose a version…"}
-              </option>
-              {filteredVersions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.id}
-                </option>
-              ))}
-            </Select>
+              aria-label="Version to install" />
 
-            {status === "unavailable" && (
-              <button type="button" className="btn btn-ghost" onClick={retry}>
-                <RefreshIcon />
-                Retry
-              </button>
-            )}
+            {status === "unavailable" && !installing && (
+                <button type="button" className="btn btn-ghost" onClick={retry}>
+                  <RefreshIcon />
+                    Retry
+                </button>
+                )}
 
             <button
               type="button"
