@@ -19,14 +19,7 @@ pub struct Version {
 
 pub static VERSIONS: Lazy<Mutex<Option<VersionManifest>>> = Lazy::new(|| Mutex::new(None));
 
-#[tauri::command]
-pub fn get_versions() -> Option<VersionManifest> {
-    let versions = VERSIONS.lock().unwrap();
-
-    versions.clone()
-}
-
-pub async fn fetch_versions() -> Result<VersionManifest, Box<dyn std::error::Error>> {
+pub async fn get_versions() -> Result<VersionManifest, Box<dyn std::error::Error>> {
     {
         let versions = VERSIONS.lock().unwrap();
 

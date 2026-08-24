@@ -40,12 +40,13 @@ pub async fn install_version(app: &AppHandle, version: &Version) -> Result<(), B
             .unwrap_or(0);
 
     let mut progress = Progress::new(total_bytes, files_total);
-
+    println!("1 2 1 2 jel radi ovo majku ti jebem");
     install_client_jar(&client_json, version, &mut progress, app).await?;
     install_libraries(&client_json, &mut progress, app).await?;
     if let Some(index) = &asset_index_json {
         install_assets(index, &mut progress, app).await?;
     }
+    println!("a ovde radil");
 
     Ok(())
 }

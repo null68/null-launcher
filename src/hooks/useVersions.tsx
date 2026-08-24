@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { VersionManifest } from "../types";
 
-const POLL_INTERVAL_MS = 1500;
+const POLL_INTERVAL_MS = 3000;
 const MAX_ATTEMPTS = 20;
 
 export type VersionsStatus = "loading" | "ready" | "unavailable";
@@ -16,6 +16,7 @@ export function useVersions() {
   async function fetchOnce(): Promise<boolean> {
     try {
       const result = await invoke<VersionManifest | null>("get_versions");
+      console.log(result)
       if (result) {
         setManifest(result);
         setStatus("ready");

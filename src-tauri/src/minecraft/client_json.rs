@@ -1,3 +1,4 @@
+use crate::launcher::minecraft_dir::get_minecraft_dir;
 use std::{
     collections::HashMap,
     error::Error,
@@ -11,7 +12,7 @@ use sha1::{Digest, Sha1};
 
 use crate::minecraft::manifest::Version;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ClientJson {
     pub id: Option<String>,
     pub r#type: Option<String>,
@@ -32,28 +33,28 @@ pub struct ClientJson {
     pub java_version: Option<JavaVersion>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct JavaVersion {
     pub component: String,
     #[serde(rename = "majorVersion")]
     pub major_version: u32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Download {
     pub sha1: String,
     pub size: u64,
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ClientDownloads {
     pub client: Download,
     //pub server: Download,
     pub client_mappings: Option<Download>, // if i ever get to mods in launcher
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Library {
     pub downloads: LibraryDownloads,
     pub name: String,
@@ -62,18 +63,18 @@ pub struct Library {
     pub extract: Option<Extract>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct LibraryDownloads {
     pub artifact: Option<Artifact>,
     pub classifiers: Option<HashMap<String, Artifact>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Extract {
     pub exclude: Option<Vec<String>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Artifact {
     pub path: String,
     pub sha1: String,
@@ -81,7 +82,7 @@ pub struct Artifact {
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AssetIndex {
     pub id: String,
     pub sha1: String,
@@ -92,13 +93,13 @@ pub struct AssetIndex {
     pub total_size: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Arguments {
     pub game: Option<Vec<Argument>>,
     pub jvm: Option<Vec<Argument>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum Argument {
     Simple(String),
@@ -108,21 +109,21 @@ pub enum Argument {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum ArgumentValue {
     Single(String),
     Multiple(Vec<String>),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Rule {
     pub action: Option<String>,
     pub features: Option<HashMap<String, bool>>,
     pub os: Option<OS>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OS {
     pub name: Option<String>,
     pub version: Option<String>,
@@ -130,8 +131,8 @@ pub struct OS {
 }
 
 pub async fn fetch_or_get_client_json(version: &Version) -> Result<ClientJson, Box<dyn Error>> {
-    let home = dirs::home_dir().ok_or("home dir doesn't exist")?;
-    let path_to_versions_dir = home.join(".minecraft/versions").join(&version.id);
+    let minecraft_dir = get_minecraft_dir()?;
+    let path_to_versions_dir = minecraft_dir.join("versions").join(&version.id);
     let path_to_version_json = path_to_versions_dir.join(format!("{}.json", version.id));
 
     if path_to_version_json.exists() {
@@ -166,11 +167,10 @@ pub async fn fetch_or_get_client_json(version: &Version) -> Result<ClientJson, B
     let hash = hex::encode(hash);
     if version.sha1 != hash {
         return Err(String::from("sha1 mismatch").into());
-    } // todo: add retry now its just an err
+    }
 
     create_dir_all(&path_to_versions_dir)?;
     write(&path_to_version_json, &res)?;
     let json = from_slice::<ClientJson>(&res)?;
-
     Ok(json)
 }
