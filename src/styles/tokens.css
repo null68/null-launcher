@@ -1,0 +1,32 @@
+:root {
+  --bg:            #14110e;
+  --bg-raised:     #1c1815;
+  --bg-slot:       #211c18;
+  --bg-slot-hover: #292219;
+  --border:        #332c24;
+  --border-strong: #4a4032;
+
+  --text:       #ede6da;
+  --text-dim:   #a79c8c;
+  --text-faint: #6e6455;
+
+  --copper:        #c1653a;
+  --copper-bright: #e28a54;
+  --copper-dim:    #4a2a1b;
+  --copper-on:     #1c0f08;
+
+  --oxide:     #6c9c86;
+  --oxide-dim: #2a3b33;
+
+  --amber:     #d9a441;
+  --amber-dim: #3f3319;
+
+  --danger:     #c9503f;
+  --danger-dim: #3b211b;
+
+  --font-ui:   system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+}
