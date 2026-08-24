@@ -1,0 +1,48 @@
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 24px;
+}
+.toolbar-group.instance-picker { width: 220px; }
+.toolbar-divider { width: 1px; align-self: stretch; background: var(--border); margin: 0 20px; }
+.install-group { flex: 1; min-width: 0; }
+
+/* ---------- type filter chips ---------- */
+.chip-row { display: flex; flex-wrap: wrap; margin-bottom: 8px; }
+.chip-row > * { margin-right: 6px; margin-bottom: 6px; }
+.chip {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.chip:hover { border-color: var(--border-strong); color: var(--text-dim); }
+.chip .dot { width: 5px; height: 5px; border-radius: 999px; background: currentColor; margin-right: 5px; flex: none; }
+.chip.on-release  { background: var(--oxide-dim); border-color: var(--oxide); color: var(--oxide); }
+.chip.on-snapshot { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+.chip.on-legacy   { background: var(--bg-slot-hover); border-color: var(--border-strong); color: var(--text); }
+
+/* ---------- install row ---------- */
+.install-row { display: flex; flex-wrap: wrap; align-items: center; }
+.install-row > * { margin-right: 8px; margin-top: 6px; }
+.install-row .version-select { width: 230px; flex: none; }
+
+/* ---------- instance card ---------- */
+.instance-card { display: flex; align-items: center; padding: 20px; }
+.instance-cube { width: 46px; height: 46px; flex: none; margin-right: 16px; color: var(--text-faint); }
+.instance-cube.cube-release  { color: var(--oxide); }
+.instance-cube.cube-snapshot { color: var(--amber); }
+.instance-info { flex: 1; min-width: 0; }
+.instance-id { font-family: var(--font-mono); font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.instance-actions { flex: none; margin-left: 16px; }

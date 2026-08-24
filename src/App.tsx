@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import "./styles/tokens.css";
 import "./styles/global.css";
 import "./styles/components.css";
+import { InstancesView } from "./views/InstancesView";
 
 export type ViewId = "instances" | "screenshots" | "settings";
 
@@ -13,6 +14,7 @@ function App() {
     <div className="app">
       <Sidebar active={view} onSelect={setView} />
       <main className="main">
+          { view == "instances" && <InstancesView /> }
       </main>
     </div>
   );
