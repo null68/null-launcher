@@ -1,3 +1,4 @@
+use crate::launcher::minecraft_dir::get_minecraft_dir;
 use crate::launcher::progress::Progress;
 use crate::{launcher::download::DownloadObject, minecraft::client_json::ClientJson};
 use serde::{self, Deserialize, Serialize};
@@ -32,7 +33,7 @@ pub async fn fetch_asset_index(
 
     download_object.download_file(|_| {}).await?;
 
-    let bytes = fs::read(&index_path)?;
+    let bytes = fs::read(get_minecraft_dir()?.join(&index_path))?;
     Ok(Some(serde_json::from_slice::<AssetIndexJson>(&bytes)?))
 }
 
