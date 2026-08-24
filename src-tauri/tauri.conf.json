@@ -13,8 +13,12 @@
     "windows": [
       {
         "title": "null-launcher",
-        "width": 800,
-        "height": 600
+        "width": 960,
+        "height": 640,
+        "minWidth": 940,
+        "minHeight": 600,
+        "maxWidth": 1600,
+        "maxHeight": 1000
       }
     ],
     "security": {
