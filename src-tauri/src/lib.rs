@@ -4,6 +4,7 @@ mod minecraft;
 use tauri::AppHandle;
 
 use crate::launcher::asset_orchestrator::install_version as install_version_impl;
+use crate::launcher::screenshots::{list_screenshots as list_screenshots_impl, Screenshot};
 use crate::minecraft::manifest::{get_versions as get_versions_impl, VersionManifest};
 
 #[tauri::command]
@@ -28,10 +29,20 @@ async fn install_version(app: AppHandle, version_id: String) -> Result<(), Strin
     Ok(())
 }
 
+#[tauri::command]
+fn list_screenshots() -> Result<Vec<Screenshot>, String> {
+    list_screenshots_impl().ok_or_else(|| "screenshots dir doesn't exist".to_string())
+}
+
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![get_versions, install_version])
+        .invoke_handler(tauri::generate_handler![
+            get_versions,
+            install_version,
+            list_screenshots
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -23,3 +23,8 @@ export interface InstallProgressPayload {
   files_done: number;
   files_total: number;
 }
+
+export interface Screenshot {
+  name: string;
+  path: string;
+}
