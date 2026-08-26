@@ -14,6 +14,11 @@ pub async fn install_libraries(
     app: &AppHandle,
 ) -> Result<(), Box<dyn Error>> {
     let features = HashMap::new(); // idk will it support quick play ill see
+
+    let current_os_name = match std::env::consts::OS {
+        "macos" => "osx",
+        _ => std::env::consts::OS,
+    };
     for library in &client_json.libraries {
         if !is_library_allowed(&library.rules, &features) {
             continue;
@@ -30,6 +35,28 @@ pub async fn install_libraries(
             download_obj.download_file(|_| {}).await?;
             progress.add_file(app, artifact.size);
         }
+
+        if let Some(classifier) = library
+            .natives
+            .as_ref()
+            .and_then(|n| n.get(current_os_name))
+        {
+            if let Some(artifact) = library
+                .downloads
+                .classifiers
+                .as_ref()
+                .and_then(|c| c.get(classifier))
+            {
+                let download_obj = DownloadObject {
+                    url: artifact.url.clone(),
+                    size: Some(artifact.size),
+                    sha1: Some(artifact.sha1.clone()),
+                    file_path: PathBuf::from("libraries").join(&artifact.path),
+                };
+                download_obj.download_file(|_| {}).await?;
+                progress.add_file(app, artifact.size);
+            }
+        }
     }
 
     Ok(())
@@ -40,7 +67,11 @@ pub fn is_library_allowed(rules: &Option<Vec<Rule>>, features: &HashMap<String, 
         return true;
     };
 
-    let current_os_name = std::env::consts::OS;
+    let current_os_name = match std::env::consts::OS {
+        "macos" => "osx",
+        _ => std::env::consts::OS,
+    };
+
     let current_arch_name = std::env::consts::ARCH;
     let mut allowed = false;
 
