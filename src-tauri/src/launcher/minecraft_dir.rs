@@ -1,4 +1,3 @@
-#[cfg(target_os = "windows")]
 use std::error::Error;
 
 #[cfg(target_os = "windows")]
@@ -9,6 +8,6 @@ pub fn get_minecraft_dir() -> Result<std::path::PathBuf, Box<dyn Error>> {
 
 #[cfg(target_os = "linux")]
 pub fn get_minecraft_dir() -> Result<std::path::PathBuf, Box<dyn Error>> {
-    let home = dirs::home_dir().ok_or("appdata doesnt exist")?;
+    let home = dirs::home_dir().ok_or("homedir doesnt exist")?;
     Ok(home.join(".minecraft"))
 }
