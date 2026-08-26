@@ -116,14 +116,14 @@ pub enum ArgumentValue {
     Multiple(Vec<String>),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Rule {
     pub action: Option<String>,
     pub features: Option<HashMap<String, bool>>,
     pub os: Option<OS>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OS {
     pub name: Option<String>,
     pub version: Option<String>,
