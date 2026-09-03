@@ -9,7 +9,6 @@ export function useInstances() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      // todo: implement list_instances
       const result = await invoke<Instance[]>("list_instances");
       setInstances(result ?? []);
     } catch {
