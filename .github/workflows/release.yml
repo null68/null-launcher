@@ -3,7 +3,7 @@ name: Automatic Release
 on:
   push:
     branches:
-      - main
+      - master
 
 permissions:
   contents: write
@@ -236,7 +236,7 @@ jobs:
           releaseBody: |
             ## Null Launcher v__VERSION__
 
-            Automatic release generated from main.
+            Automatic release generated from master.
 
             ### Downloads
 
