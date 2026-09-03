@@ -5,6 +5,7 @@ import { CubeIcon, ImageIcon, SettingsIcon } from "./icons";
 interface SidebarProps {
   active: ViewId;
   onSelect: (view: ViewId) => void;
+  installing?: boolean;
 }
 
 const NAV_ITEMS: { id: ViewId; label: string; Icon: ComponentType<{ className?: string }> }[] = [
@@ -13,7 +14,7 @@ const NAV_ITEMS: { id: ViewId; label: string; Icon: ComponentType<{ className?: 
   { id: "settings", label: "Settings", Icon: SettingsIcon },
 ];
 
-export function Sidebar({ active, onSelect }: SidebarProps) {
+export function Sidebar({ active, onSelect, installing }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -34,12 +35,13 @@ export function Sidebar({ active, onSelect }: SidebarProps) {
             >
               <Icon />
               <span>{label}</span>
+              {id === "instances" && installing && <span className="nav-badge" title="Installing…" />}
             </button>
           </li>
         ))}
       </ul>
 
-      <div className="sidebar-foot">v0.1.0</div>
+      <div className="sidebar-foot">v0.2.0</div>
     </aside>
   );
 }

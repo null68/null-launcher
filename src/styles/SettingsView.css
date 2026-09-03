@@ -1,0 +1,114 @@
+.settings-section { max-width: 480px; }
+.settings-section + .settings-section {
+  margin-top: 30px;
+  padding-top: 30px;
+  border-top: 1px solid var(--border);
+}
+.section-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.section-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; line-height: 18px; }
+
+.field { display: block; }
+
+.text-input {
+  height: 34px;
+  width: 100%;
+  max-width: 280px;
+  padding: 0 11px;
+  background: var(--bg-slot);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: 13px;
+}
+.text-input:hover { border-color: var(--border-strong); }
+.text-input:focus { outline: none; border-color: var(--copper); box-shadow: 0 0 0 3px var(--copper-dim); }
+
+/* ---------- memory sliders ---------- */
+.mem-row { margin-bottom: 18px; }
+.mem-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.mem-name { font-size: 12px; font-weight: 600; }
+.mem-name .sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); font-weight: 500; margin-left: 5px; }
+.mem-value { font-family: var(--font-mono); font-size: 12.5px; color: var(--copper-bright); font-weight: 600; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  margin: 0;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--bg-slot);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--copper);
+  border: 2px solid var(--bg);
+  margin-top: -6px;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: var(--bg-slot);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--copper);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+}
+
+/* ---------- combined range readout ---------- */
+.mem-bar {
+  position: relative;
+  height: 8px;
+  background: var(--bg-slot);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+.mem-bar-fill {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  background: var(--copper-dim);
+  border-top: 1px solid var(--copper);
+  border-bottom: 1px solid var(--copper);
+}
+.mem-ticks { display: flex; justify-content: space-between; margin-top: 6px; }
+.mem-ticks span { font-size: 10px; font-family: var(--font-mono); color: var(--text-faint); }
+
+/* ---------- toggle switch ---------- */
+.switch {
+  flex: none;
+  width: 38px;
+  height: 22px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-slot);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.switch-knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--text-faint);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.switch.on { background: var(--copper-dim); border-color: var(--copper); }
+.switch.on .switch-knob { background: var(--copper-bright); transform: translateX(16px); }

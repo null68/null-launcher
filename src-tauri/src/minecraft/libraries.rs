@@ -4,6 +4,7 @@ use crate::launcher::download::DownloadObject;
 use crate::launcher::progress::Progress;
 use crate::minecraft::client_json::ClientJson;
 use crate::minecraft::client_json::Rule;
+use crate::minecraft::maven::resolve_library_artifact;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
@@ -24,16 +25,16 @@ pub async fn install_libraries(
             continue;
         }
 
-        if let Some(artifact) = &library.downloads.artifact {
+        if let Some(artifact) = resolve_library_artifact(library) {
             let download_obj = DownloadObject {
                 url: artifact.url.clone(),
-                size: Some(artifact.size),
-                sha1: Some(artifact.sha1.clone()),
+                size: artifact.size,
+                sha1: artifact.sha1.clone(),
                 file_path: PathBuf::from("libraries").join(&artifact.path),
             };
             // libraries are small in size (i think) so callback function and updating on_chunk will not be necessary
             download_obj.download_file(|_| {}).await?;
-            progress.add_file(app, artifact.size);
+            progress.add_file(app, artifact.size.unwrap_or(0));
         }
 
         if let Some(classifier) = library
@@ -43,18 +44,18 @@ pub async fn install_libraries(
         {
             if let Some(artifact) = library
                 .downloads
-                .classifiers
                 .as_ref()
+                .and_then(|d| d.classifiers.as_ref())
                 .and_then(|c| c.get(classifier))
             {
                 let download_obj = DownloadObject {
                     url: artifact.url.clone(),
-                    size: Some(artifact.size),
-                    sha1: Some(artifact.sha1.clone()),
+                    size: artifact.size,
+                    sha1: artifact.sha1.clone(),
                     file_path: PathBuf::from("libraries").join(&artifact.path),
                 };
                 download_obj.download_file(|_| {}).await?;
-                progress.add_file(app, artifact.size);
+                progress.add_file(app, artifact.size.unwrap_or(0));
             }
         }
     }

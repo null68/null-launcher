@@ -46,3 +46,13 @@
 .instance-info { flex: 1; min-width: 0; }
 .instance-id { font-family: var(--font-mono); font-size: 16px; font-weight: 600; margin-bottom: 6px; }
 .instance-actions { flex: none; margin-left: 16px; }
+
+.launch-error {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-dim);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 17px;
+}

@@ -74,9 +74,11 @@ The finished app/installer lands in `src-tauri/target/release/bundle/`.
 ## Roadmap
 
 - [ ] Premium (Microsoft) account support
-- [ ] Fabric mod loader support
-- [ ] Forge mod loader support
-
+- [x] Fabric mod loader support
+- [x] Forge mod loader support
+- [x] Neogorge mod loader support
+- [x] Quilt mod loader support 
+ 
 **Further down the line:**
 - [ ] Modpack creation & support
 - [ ] MacOS support

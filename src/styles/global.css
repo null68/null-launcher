@@ -98,6 +98,19 @@ li + li > .nav-item { margin-top: 2px; }
 .nav-item:hover { background: var(--bg-slot); color: var(--text); }
 .nav-item.active { background: var(--copper-dim); color: var(--copper-bright); border-left-color: var(--copper); }
 
+.nav-badge {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--copper-bright);
+  animation: nav-badge-pulse 1.4s ease-in-out infinite;
+}
+@keyframes nav-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 .sidebar-foot {
   margin-top: auto;
   padding: 0 10px;

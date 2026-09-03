@@ -1,4 +1,5 @@
 export type VersionType = "release" | "snapshot" | "old_beta" | "old_alpha";
+export type Loader = "vanilla" | "fabric" | "quilt" | "forge" | "neoforge" | "optifine";
 
 export interface Version {
   id: string;
@@ -15,6 +16,7 @@ export interface Instance {
   id: string;
   type: VersionType;
   installedAt?: string;
+  loader?: Loader | null;
 }
 
 export interface InstallProgressPayload {
@@ -27,4 +29,11 @@ export interface InstallProgressPayload {
 export interface Screenshot {
   name: string;
   path: string;
+}
+
+export interface LauncherSettings {
+  username: string;
+  minMemoryMb: number;
+  maxMemoryMb: number;
+  terminalMode: boolean;
 }

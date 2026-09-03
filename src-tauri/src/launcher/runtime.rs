@@ -1,56 +1,174 @@
 use md5::Md5;
 use sha1::Digest;
 use std::fs::{self, File};
+use std::io::{self, BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
-use std::{collections::HashMap, error::Error, io, path::Path};
+use std::time::Duration;
+use std::{
+    collections::HashMap,
+    error::Error,
+    path::{Path, PathBuf},
+};
 
+use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
+
+use crate::launcher::download::DownloadObject;
 use crate::launcher::minecraft_dir::get_minecraft_dir;
-use crate::minecraft::client_json::fetch_or_get_client_json;
-use crate::minecraft::manifest::Version;
+use crate::minecraft::client_json::{read_client_json_from_disk, resolve_client_json};
+use crate::minecraft::maven::resolve_library_artifact;
 use crate::minecraft::{
     client_json::{Argument, ArgumentValue, ClientJson},
     libraries::is_library_allowed,
 };
 
-#[cfg(target_os = "windows")]
-pub fn find_java() -> Option<String> {
-    use std::process::Command;
+const TERMINAL_WINDOW_LABEL: &str = "terminal";
 
+#[cfg(target_os = "windows")]
+fn find_java_on_path() -> Option<String> {
     let output = Command::new("cmd")
         .args(["/C", "where java"])
         .output()
         .ok()?;
-
     if !output.status.success() {
         return None;
     }
-
-    let path = String::from_utf8_lossy(&output.stdout)
+    String::from_utf8_lossy(&output.stdout)
         .lines()
-        .next()?
-        .trim()
-        .to_string();
-
-    Some(path)
+        .next()
+        .map(|s| s.trim().to_string())
 }
 
-#[cfg(target_os = "linux")]
-pub fn find_java() -> Option<String> {
-    use std::process::Command;
-
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn find_java_on_path() -> Option<String> {
     let output = Command::new("which").arg("java").output().ok()?;
-
     if !output.status.success() {
         return None;
     }
-
-    let path = String::from_utf8_lossy(&output.stdout)
+    String::from_utf8_lossy(&output.stdout)
         .lines()
-        .next()?
-        .trim()
-        .to_string();
+        .next()
+        .map(|s| s.trim().to_string())
+}
 
-    Some(path)
+fn java_home_candidate() -> Option<String> {
+    let home = std::env::var("JAVA_HOME").ok()?;
+    let bin_name = if cfg!(windows) { "java.exe" } else { "java" };
+    let path = Path::new(&home).join("bin").join(bin_name);
+    path.exists().then(|| path.display().to_string())
+}
+
+fn bundled_java_candidate(minecraft_dir: &Path, component: &str) -> Option<String> {
+    let bin_name = if cfg!(windows) { "javaw.exe" } else { "java" };
+    let path = minecraft_dir
+        .join("runtime")
+        .join(component)
+        .join("bin")
+        .join(bin_name);
+    path.exists().then(|| path.display().to_string())
+}
+
+fn java_major_version(java_path: &str) -> Option<u32> {
+    let output = Command::new(java_path).arg("-version").output().ok()?;
+    parse_java_major_version(&String::from_utf8_lossy(&output.stderr))
+}
+
+fn parse_java_major_version(banner: &str) -> Option<u32> {
+    let after = banner.split("version \"").nth(1)?;
+    let version_str = after.split('"').next()?;
+    let version_str = version_str.strip_prefix("1.").unwrap_or(version_str);
+    let digits: String = version_str
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    digits.parse().ok()
+}
+
+pub fn find_compatible_java(
+    minecraft_dir: &Path,
+    component: &str,
+    required_major: u32,
+) -> Result<String, String> {
+    let candidates = [
+        bundled_java_candidate(minecraft_dir, component),
+        java_home_candidate(),
+        find_java_on_path(),
+    ];
+
+    let mut closest_mismatch: Option<(String, u32)> = None;
+    for candidate in candidates.into_iter().flatten() {
+        match java_major_version(&candidate) {
+            Some(major) if major == required_major => return Ok(candidate),
+            Some(major) => {
+                closest_mismatch.get_or_insert((candidate, major));
+            }
+            None => {}
+        }
+    }
+
+    match closest_mismatch {
+        Some((path, major)) => Err(format!(
+            "This version needs Java {required_major}, but only Java {major} was found ({path}). \
+             Bundling a matching runtime automatically isn't implemented yet - install Java {required_major} \
+             and make sure it's on PATH, or point JAVA_HOME at it."
+        )),
+        None => Err(
+            "No Java installation found (checked JAVA_HOME and PATH). Install Java and make sure \
+             it's on PATH, or set JAVA_HOME."
+                .to_string(),
+        ),
+    }
+}
+
+fn open_terminal_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(TERMINAL_WINDOW_LABEL) {
+        let _ = window.set_focus();
+        let _ = app.emit_to(
+            TERMINAL_WINDOW_LABEL,
+            "mc-log",
+            "\n── new launch ──\n".to_string(),
+        );
+        return;
+    }
+
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<()>();
+    app.once("terminal-ready", move |_event| {
+        let _ = ready_tx.send(());
+    });
+
+    let built = WebviewWindowBuilder::new(
+        app,
+        TERMINAL_WINDOW_LABEL,
+        WebviewUrl::App("index.html#terminal".into()),
+    )
+    .title("null-launcher — Console")
+    .inner_size(760.0, 460.0)
+    .build();
+
+    if built.is_ok() {
+        let _ = ready_rx.recv_timeout(Duration::from_secs(3));
+    }
+}
+
+fn stream_to_terminal(
+    app: AppHandle,
+    stdout: Option<std::process::ChildStdout>,
+    stderr: Option<std::process::ChildStderr>,
+) {
+    if let Some(stdout) = stdout {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            for line in BufReader::new(stdout).lines().flatten() {
+                let _ = app.emit_to(TERMINAL_WINDOW_LABEL, "mc-log", line);
+            }
+        });
+    }
+    if let Some(stderr) = stderr {
+        std::thread::spawn(move || {
+            for line in BufReader::new(stderr).lines().flatten() {
+                let _ = app.emit_to(TERMINAL_WINDOW_LABEL, "mc-log", line);
+            }
+        });
+    }
 }
 
 fn offline_uuid(username: &str) -> String {
@@ -122,8 +240,8 @@ fn extract_natives(
         };
         let Some(artifact) = library
             .downloads
-            .classifiers
             .as_ref()
+            .and_then(|d| d.classifiers.as_ref())
             .and_then(|c| c.get(classifier_key))
         else {
             continue;
@@ -160,23 +278,46 @@ fn extract_natives(
     Ok(())
 }
 
-pub async fn launch_instance(version: &Version, username: &str) -> Result<Child, Box<dyn Error>> {
+pub async fn launch_instance(
+    app: &AppHandle,
+    version_id: &str,
+    username: &str,
+    terminal_mode: bool,
+    min_memory_mb: Option<u32>,
+    max_memory_mb: Option<u32>,
+) -> Result<Child, Box<dyn Error>> {
     let minecraft_dir = get_minecraft_dir()?;
-    let client_json = fetch_or_get_client_json(version).await?;
-    let java = find_java().ok_or("java not found on PATH")?;
+    // use vanilla jars for modded shit
+    let base_id = read_client_json_from_disk(&minecraft_dir, version_id)?
+        .inherits_from
+        .unwrap_or_else(|| version_id.to_string());
+    let client_json = resolve_client_json(&minecraft_dir, version_id).await?;
+
+    let required_major = client_json
+        .java_version
+        .as_ref()
+        .map(|j| j.major_version)
+        .unwrap_or(8);
+    let component = client_json
+        .java_version
+        .as_ref()
+        .map(|j| j.component.as_str())
+        .unwrap_or("jre-legacy");
+    let java = find_compatible_java(&minecraft_dir, component, required_major)?;
+
     let features: HashMap<String, bool> = HashMap::new();
 
     let natives_dir = minecraft_dir
         .join("versions")
-        .join(&version.id)
-        .join(format!("{}-natives", version.id));
+        .join(version_id)
+        .join(format!("{version_id}-natives"));
     extract_natives(&client_json, &natives_dir, &minecraft_dir, &features)?;
 
     let mut classpath_entries: Vec<String> = client_json
         .libraries
         .iter()
         .filter(|l| is_library_allowed(&l.rules, &features))
-        .filter_map(|l| l.downloads.artifact.as_ref())
+        .filter_map(resolve_library_artifact)
         .map(|a| {
             minecraft_dir
                 .join("libraries")
@@ -188,8 +329,8 @@ pub async fn launch_instance(version: &Version, username: &str) -> Result<Child,
     classpath_entries.push(
         minecraft_dir
             .join("versions")
-            .join(&version.id)
-            .join(format!("{}.jar", version.id))
+            .join(&base_id)
+            .join(format!("{base_id}.jar"))
             .display()
             .to_string(),
     );
@@ -199,11 +340,15 @@ pub async fn launch_instance(version: &Version, username: &str) -> Result<Child,
         .asset_index
         .as_ref()
         .map(|a| a.id.clone())
-        .unwrap_or_else(|| version.id.clone());
+        .unwrap_or_else(|| version_id.to_string());
+    let version_type = client_json
+        .r#type
+        .clone()
+        .unwrap_or_else(|| "release".to_string());
 
     let mut values: HashMap<&str, String> = HashMap::new();
     values.insert("auth_player_name", username.to_string());
-    values.insert("version_name", version.id.clone());
+    values.insert("version_name", version_id.to_string());
     values.insert("game_directory", minecraft_dir.display().to_string());
     values.insert(
         "assets_root",
@@ -214,7 +359,7 @@ pub async fn launch_instance(version: &Version, username: &str) -> Result<Child,
     values.insert("auth_access_token", "0".to_string());
     values.insert("user_type", "legacy".to_string());
     values.insert("user_properties", "{}".to_string());
-    values.insert("version_type", version.r#type.clone());
+    values.insert("version_type", version_type);
     values.insert("natives_directory", natives_dir.display().to_string());
     values.insert("launcher_name", "null-launcher".to_string());
     values.insert("launcher_version", env!("CARGO_PKG_VERSION").to_string());
@@ -243,19 +388,59 @@ pub async fn launch_instance(version: &Version, username: &str) -> Result<Child,
         }
     }
 
+    if let Some(logging) = &client_json.logging {
+        let relative_path = PathBuf::from("assets")
+            .join("log_configs")
+            .join(&logging.client.file.id);
+        let download = DownloadObject {
+            url: logging.client.file.url.clone(),
+            size: Some(logging.client.file.size),
+            sha1: Some(logging.client.file.sha1.clone()),
+            file_path: relative_path.clone(),
+        };
+        download.download_file(|_| {}).await?;
+
+        let mut log_values: HashMap<&str, String> = HashMap::new();
+        log_values.insert(
+            "path",
+            minecraft_dir.join(&relative_path).display().to_string(),
+        );
+        jvm_args.push(substitute(&logging.client.argument, &log_values));
+    }
+
+    if let Some(min) = min_memory_mb {
+        jvm_args.push(format!("-Xms{min}M"));
+    }
+    if let Some(max) = max_memory_mb {
+        jvm_args.push(format!("-Xmx{max}M"));
+    }
+
     let main_class = client_json
         .main_class
         .clone()
         .ok_or("client json has no mainClass")?;
 
-    let child = Command::new(&java)
+    let mut command = Command::new(&java);
+    command
         .current_dir(&minecraft_dir)
         .args(&jvm_args)
         .arg(&main_class)
-        .args(&game_args)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn()?;
+        .args(&game_args);
+
+    let child = if terminal_mode {
+        open_terminal_window(app);
+        let mut child = command
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        stream_to_terminal(app.clone(), child.stdout.take(), child.stderr.take());
+        child
+    } else {
+        command
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()?
+    };
 
     Ok(child)
 }

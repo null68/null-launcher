@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { useVersions } from "../hooks/useVersions";
 import { useInstances } from "../hooks/useInstances";
+import { useSettings } from "../hooks/useSettings";
+import { useLoaderVersions } from "../hooks/useLoaderVersions";
 import { Select } from "../components/Select";
 import { EmptyState } from "../components/EmptyState";
 import { ProgressBar } from "../components/ProgressBar";
 import { CubeIcon, DownloadIcon, PlayIcon, RefreshIcon } from "../components/icons";
-import type { InstallProgressPayload, VersionType } from "../types";
+import type { Loader, VersionType } from "../types";
 import type { SelectOption } from "../components/Select";
+import type { useInstallManager } from "../hooks/useInstallManager";
 
 import "../styles/InstancesView.css";
 
@@ -20,6 +22,17 @@ const TYPE_LABELS: Record<VersionType, string> = {
 };
 
 const TYPE_ORDER: VersionType[] = ["release", "snapshot", "old_beta", "old_alpha"];
+
+const LOADER_LABELS: Record<Loader, string> = {
+  vanilla: "Vanilla",
+  fabric: "Fabric",
+  quilt: "Quilt",
+  forge: "Forge",
+  neoforge: "NeoForge",
+  optifine: "OptiFine",
+};
+
+const LOADER_ORDER: Loader[] = ["vanilla", "fabric", "quilt", "forge", "neoforge"];
 
 function chipVariant(type: VersionType): "release" | "snapshot" | "legacy" {
   if (type === "release") return "release";
@@ -33,22 +46,29 @@ function tagClassFor(type: VersionType): string {
   return "tag-legacy";
 }
 
-interface ProgressState {
-  downloadedBytes: number;
-  totalBytes: number;
-  filesDone: number;
-  filesTotal: number;
+interface InstancesViewProps {
+  installManager: ReturnType<typeof useInstallManager>;
 }
 
-export function InstancesView() {
+export function InstancesView({ installManager }: InstancesViewProps) {
   const { manifest, status, retry } = useVersions();
   const { instances, loading: instancesLoading, refresh: refreshInstances } = useInstances();
+  const { settings } = useSettings();
 
   const [activeTypes, setActiveTypes] = useState<Set<VersionType>>(new Set(["release"]));
   const [selectedInstanceId, setSelectedInstanceId] = useState("");
   const [versionToInstall, setVersionToInstall] = useState("");
-  const [installing, setInstalling] = useState(false);
-  const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [loaderToInstall, setLoaderToInstall] = useState<Loader>("vanilla");
+  const [loaderVersionToInstall, setLoaderVersionToInstall] = useState("");
+  const [launching, setLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+
+  const { installing, progress, error: installError, installVanilla, installModded } = installManager;
+
+  const { versions: loaderVersions, loading: loaderVersionsLoading } = useLoaderVersions(
+    loaderToInstall,
+    versionToInstall,
+  );
 
   useEffect(() => {
     if (instances.length > 0 && !instances.some((i) => i.id === selectedInstanceId)) {
@@ -60,18 +80,8 @@ export function InstancesView() {
   }, [instances, selectedInstanceId]);
 
   useEffect(() => {
-    const unlisten = listen<InstallProgressPayload>("install-progress", (event) => {
-      setProgress({
-        downloadedBytes: event.payload.downloaded_bytes,
-        totalBytes: event.payload.total_bytes,
-        filesDone: event.payload.files_done,
-        filesTotal: event.payload.files_total,
-      });
-    });
-    return () => {
-      unlisten.then((f) => f());
-    };
-  }, []);
+    setLoaderVersionToInstall("");
+  }, [loaderToInstall, versionToInstall]);
 
   const filteredVersions = useMemo(() => {
      if (!manifest) return [];
@@ -80,9 +90,15 @@ export function InstancesView() {
 
    const instanceOptions: SelectOption[] = instances.map((i) => ({ value: i.id, label: i.id }));
    const versionOptions: SelectOption[] = filteredVersions.map((v) => ({ value: v.id, label: v.id }));
+   const loaderVersionOptions: SelectOption[] = loaderVersions.map((v) => ({ value: v, label: v }));
 
    const versionPlaceholder =
      status === "loading" ? "Loading versions…" : status === "unavailable" ? "Couldn't load versions" : "Choose a version…";
+   const loaderVersionPlaceholder = loaderVersionsLoading
+     ? "Loading…"
+     : loaderVersions.length === 0
+       ? `No ${LOADER_LABELS[loaderToInstall]} builds for this version`
+       : `Choose a ${LOADER_LABELS[loaderToInstall]} version…`;
 
   function toggleType(type: VersionType) {
     setActiveTypes((prev) => {
@@ -98,26 +114,37 @@ export function InstancesView() {
 
   async function handleInstall() {
     if (!versionToInstall || installing) return;
-    setInstalling(true);
-    setProgress(null);
+    if (loaderToInstall !== "vanilla" && !loaderVersionToInstall) return;
     try {
-      await invoke("install_version", { versionId: versionToInstall });
+      const installedId =
+        loaderToInstall === "vanilla"
+          ? await installVanilla(versionToInstall)
+          : await installModded(versionToInstall, loaderToInstall, loaderVersionToInstall);
       await refreshInstances();
-      setSelectedInstanceId(versionToInstall);
+      setSelectedInstanceId(installedId);
       setVersionToInstall("");
+      setLoaderToInstall("vanilla");
     } catch (err) {
-      console.warn("install_version failed:", err);
-    } finally {
-      setInstalling(false);
+      console.warn("install failed:", err);
     }
   }
 
   async function handlePlay() {
-    if (!selectedInstanceId) return;
+    if (!selectedInstanceId || launching) return;
+    setLaunching(true);
+    setLaunchError(null);
     try {
-      await invoke("launch_instance", { versionId: selectedInstanceId });
+      await invoke("launch_instance", {
+        versionId: selectedInstanceId,
+        username: settings.username,
+        terminalMode: settings.terminalMode,
+        minMemoryMb: settings.minMemoryMb,
+        maxMemoryMb: settings.maxMemoryMb,
+      });
     } catch (err) {
-      console.warn("launch_instance failed:", err);
+      setLaunchError(String(err));
+    } finally {
+      setLaunching(false);
     }
   }
 
@@ -162,6 +189,20 @@ export function InstancesView() {
             ))}
           </div>
 
+          <div className="chip-row">
+            {LOADER_ORDER.map((loader) => (
+              <button
+                key={loader}
+                type="button"
+                className={loaderToInstall === loader ? "chip on-legacy" : "chip"}
+                aria-pressed={loaderToInstall === loader}
+                onClick={() => setLoaderToInstall(loader)}
+              >
+                {LOADER_LABELS[loader]}
+              </button>
+            ))}
+          </div>
+
           <div className="install-row">
             <Select
               value={versionToInstall}
@@ -171,6 +212,17 @@ export function InstancesView() {
               disabled={installing}
               className="version-select"
               aria-label="Version to install" />
+
+            {loaderToInstall !== "vanilla" && (
+              <Select
+                value={loaderVersionToInstall}
+                onChange={setLoaderVersionToInstall}
+                options={loaderVersionOptions}
+                placeholder={loaderVersionPlaceholder}
+                disabled={installing || !versionToInstall || loaderVersionsLoading}
+                className="version-select"
+                aria-label={`${LOADER_LABELS[loaderToInstall]} version to install`} />
+            )}
 
             {status === "unavailable" && !installing && (
                 <button type="button" className="btn btn-ghost" onClick={retry}>
@@ -182,7 +234,7 @@ export function InstancesView() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={!versionToInstall || installing}
+              disabled={!versionToInstall || installing || (loaderToInstall !== "vanilla" && !loaderVersionToInstall)}
               onClick={handleInstall}
             >
               <DownloadIcon />
@@ -194,30 +246,42 @@ export function InstancesView() {
 
       {installing && progress && (
         <ProgressBar
-          label={`Installing ${versionToInstall}…`}
+          label={`Installing ${installManager.installingId ?? "…"}`}
           downloadedBytes={progress.downloadedBytes}
           totalBytes={progress.totalBytes}
           filesDone={progress.filesDone}
           filesTotal={progress.filesTotal}
         />
       )}
+      {installError && <div className="launch-error">{installError}</div>}
 
       {selectedInstance ? (
-        <div className="slot instance-card">
-          <CubeIcon className={`instance-cube cube-${chipVariant(selectedInstance.type)}`} />
-          <div className="instance-info">
-            <div className="instance-id">{selectedInstance.id}</div>
-            <span className={`tag ${tagClassFor(selectedInstance.type)}`}>
-              {TYPE_LABELS[selectedInstance.type]}
-            </span>
+        <>
+          <div className="slot instance-card">
+            <CubeIcon className={`instance-cube cube-${chipVariant(selectedInstance.type)}`} />
+            <div className="instance-info">
+              <div className="instance-id">{selectedInstance.id}</div>
+              <span className={`tag ${tagClassFor(selectedInstance.type)}`}>
+                {TYPE_LABELS[selectedInstance.type]}
+              </span>
+              {selectedInstance.loader && selectedInstance.loader !== "vanilla" && (
+                <span className="tag tag-loader">{LOADER_LABELS[selectedInstance.loader]}</span>
+              )}
+            </div>
+            <div className="instance-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handlePlay}
+                disabled={launching}
+              >
+                {launching ? <RefreshIcon className="spin" /> : <PlayIcon />}
+                {launching ? "Playing…" : "Play"}
+              </button>
+            </div>
           </div>
-          <div className="instance-actions">
-            <button type="button" className="btn btn-primary" onClick={handlePlay}>
-              <PlayIcon />
-              Play
-            </button>
-          </div>
-        </div>
+          {launchError && <div className="launch-error">{launchError}</div>}
+        </>
       ) : (
         <EmptyState
           icon={<CubeIcon className="icon" />}

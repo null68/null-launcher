@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "terminal-window",
+  "description": "Capability for the console window shown when Terminal Mode is on",
+  "windows": ["terminal"],
+  "permissions": [
+    "core:default"
+  ]
+}

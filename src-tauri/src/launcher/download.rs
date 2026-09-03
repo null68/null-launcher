@@ -20,7 +20,6 @@ pub struct DownloadObject {
 }
 
 impl DownloadObject {
-    // tried to implement this with a .part file so if the users pc crashes or smth the download can continue, but i found out mojangs servers dont support http range :/
     pub async fn download_file(&self, mut on_chunk: impl FnMut(u64)) -> Result<(), Box<dyn Error>> {
         let minecraft_dir = get_minecraft_dir()?;
         let file_path = minecraft_dir.join(&self.file_path);
@@ -52,7 +51,6 @@ impl DownloadObject {
             fs::create_dir_all(parent)?;
         }
 
-        // 26.2.jar.part
         let part = file_path.with_extension(format!(
             "{}.part",
             file_path

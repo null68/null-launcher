@@ -13,7 +13,11 @@ pub async fn install_client_jar(
     progress: &mut Progress,
     app: &AppHandle,
 ) -> Result<(), Box<dyn Error>> {
-    let client = &client_json.downloads.client;
+    let client = &client_json
+        .downloads
+        .as_ref()
+        .ok_or("client json has no downloads block")?
+        .client;
 
     let download_obj = DownloadObject {
         url: client.url.clone(),
