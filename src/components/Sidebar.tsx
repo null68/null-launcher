@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import type { ComponentType } from "react";
 import type { ViewId } from "../App";
 import { CubeIcon, ImageIcon, SettingsIcon } from "./icons";
@@ -8,19 +10,54 @@ interface SidebarProps {
   installing?: boolean;
 }
 
-const NAV_ITEMS: { id: ViewId; label: string; Icon: ComponentType<{ className?: string }> }[] = [
-  { id: "instances", label: "Instances", Icon: CubeIcon },
-  { id: "screenshots", label: "Screenshots", Icon: ImageIcon },
-  { id: "settings", label: "Settings", Icon: SettingsIcon },
+const NAV_ITEMS: {
+  id: ViewId;
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
+}[] = [
+  {
+    id: "instances",
+    label: "Instances",
+    Icon: CubeIcon,
+  },
+  {
+    id: "screenshots",
+    label: "Screenshots",
+    Icon: ImageIcon,
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    Icon: SettingsIcon,
+  },
 ];
 
-export function Sidebar({ active, onSelect, installing }: SidebarProps) {
+export function Sidebar({
+  active,
+  onSelect,
+  installing,
+}: SidebarProps) {
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch((error) => {
+        console.error(
+          "Failed to get application version:",
+          error
+        );
+      });
+  }, []);
+
   return (
     <aside className="sidebar">
       <div className="brand">
         <img src="/copper_block.png" alt="" />
+
         <span className="brand-name">
-          null-launcher<span className="brand-cursor" />
+          null-launcher
+          <span className="brand-cursor" />
         </span>
       </div>
 
@@ -29,19 +66,34 @@ export function Sidebar({ active, onSelect, installing }: SidebarProps) {
           <li key={id}>
             <button
               type="button"
-              className={active === id ? "nav-item active" : "nav-item"}
-              aria-current={active === id ? "page" : undefined}
+              className={
+                active === id
+                  ? "nav-item active"
+                  : "nav-item"
+              }
+              aria-current={
+                active === id ? "page" : undefined
+              }
               onClick={() => onSelect(id)}
             >
               <Icon />
+
               <span>{label}</span>
-              {id === "instances" && installing && <span className="nav-badge" title="Installing…" />}
+
+              {id === "instances" && installing && (
+                <span
+                  className="nav-badge"
+                  title="Installing…"
+                />
+              )}
             </button>
           </li>
         ))}
       </ul>
 
-      <div className="sidebar-foot">v0.2.0</div>
+      <div className="sidebar-foot">
+        {version ? `v${version}` : "v—"}
+      </div>
     </aside>
   );
 }
