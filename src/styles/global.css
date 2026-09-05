@@ -1,6 +1,15 @@
 /* ---------- reset ---------- */
+* {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+}
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; }
+html, body {
+    user-select: none;
+    -webkit-user-select: none;
+}
 body { margin: 0; }
 button, input, select { font: inherit; color: inherit; }
 ul { list-style: none; margin: 0; padding: 0; }
