@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     error::Error,
     path::{Path, PathBuf},
+    fs
 };
 
 use reqwest::Client;
