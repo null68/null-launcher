@@ -4,12 +4,12 @@ use tauri::AppHandle;
 
 use crate::{
     launcher::{download::DownloadObject, progress::Progress},
-    minecraft::{client_json::ClientJson, manifest::Version},
+    minecraft::client_json::ClientJson,
 };
 
 pub async fn install_client_jar(
     client_json: &ClientJson,
-    version: &Version,
+    version_id: &str,
     progress: &mut Progress,
     app: &AppHandle,
 ) -> Result<(), Box<dyn Error>> {
@@ -23,7 +23,7 @@ pub async fn install_client_jar(
         url: client.url.clone(),
         sha1: client.sha1.clone().into(),
         size: Some(client.size),
-        file_path: PathBuf::from(format!("versions/{}/{}.jar", version.id, version.id)),
+        file_path: PathBuf::from(format!("versions/{version_id}/{version_id}.jar")),
     };
 
     download_obj

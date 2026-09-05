@@ -56,3 +56,20 @@
   font-size: 12px;
   line-height: 17px;
 }
+
+/* ---------- launch overlay ---------- */
+.launch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--bg);
+  padding: 32px;
+}
+.launch-overlay-cube { width: 56px; height: 56px; color: var(--oxide); }
+.launch-overlay-status { font-size: 14px; font-weight: 600; color: var(--text); }
+.launch-overlay .progress-block { width: 100%; max-width: 360px; margin-bottom: 0; }

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { emit } from "@tauri-apps/api/event";
 import { Sidebar } from "./components/Sidebar";
 import "./styles/tokens.css";
 import "./styles/global.css";
@@ -13,6 +14,10 @@ export type ViewId = "instances" | "screenshots" | "settings";
 function App() {
   const [view, setView] = useState<ViewId>("instances");
   const installManager = useInstallManager();
+
+  useEffect(() => {
+    emit("app-ready");
+  }, []);
 
   return (
     <div className="app">

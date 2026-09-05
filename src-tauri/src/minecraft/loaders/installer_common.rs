@@ -202,7 +202,8 @@ pub async fn run(
         .as_ref()
         .map(|j| j.component.as_str())
         .unwrap_or("jre-legacy");
-    let java = find_compatible_java(minecraft_dir, component, required_major)
+    let java = find_compatible_java(app, minecraft_dir, component, required_major)
+        .await
         .map_err(|e| format!("can't run the {instance_id} installer: {e}"))?;
 
     let classpath_sep = if cfg!(windows) { ";" } else { ":" };

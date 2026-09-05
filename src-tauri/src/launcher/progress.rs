@@ -14,15 +14,21 @@ pub struct Progress {
     files_done: u64,
     total_bytes: u64,
     files_total: u64,
+    event: &'static str,
 }
 
 impl Progress {
     pub fn new(total_bytes: u64, files_total: u64) -> Self {
+        Self::with_event(total_bytes, files_total, "install-progress")
+    }
+
+    pub fn with_event(total_bytes: u64, files_total: u64, event: &'static str) -> Self {
         Self {
             downloaded_bytes: 0,
             files_done: 0,
             total_bytes,
             files_total,
+            event,
         }
     }
 
@@ -44,7 +50,7 @@ impl Progress {
 
     fn emit(&self, app: &AppHandle) {
         let _ = app.emit(
-            "install-progress",
+            self.event,
             ProgressPayload {
                 downloaded_bytes: self.downloaded_bytes,
                 total_bytes: self.total_bytes,

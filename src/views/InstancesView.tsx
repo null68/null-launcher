@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useVersions } from "../hooks/useVersions";
 import { useInstances } from "../hooks/useInstances";
 import { useSettings } from "../hooks/useSettings";
@@ -7,10 +8,11 @@ import { useLoaderVersions } from "../hooks/useLoaderVersions";
 import { Select } from "../components/Select";
 import { EmptyState } from "../components/EmptyState";
 import { ProgressBar } from "../components/ProgressBar";
+import { LaunchOverlay } from "../components/LaunchOverlay";
 import { CubeIcon, DownloadIcon, PlayIcon, RefreshIcon } from "../components/icons";
-import type { Loader, VersionType } from "../types";
+import type { InstallProgressPayload, Loader, VersionType } from "../types";
 import type { SelectOption } from "../components/Select";
-import type { useInstallManager } from "../hooks/useInstallManager";
+import type { useInstallManager, InstallProgressState } from "../hooks/useInstallManager";
 
 import "../styles/InstancesView.css";
 
@@ -62,6 +64,8 @@ export function InstancesView({ installManager }: InstancesViewProps) {
   const [loaderVersionToInstall, setLoaderVersionToInstall] = useState("");
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [launchStatus, setLaunchStatus] = useState<string | null>(null);
+  const [launchProgress, setLaunchProgress] = useState<InstallProgressState | null>(null);
 
   const { installing, progress, error: installError, installVanilla, installModded } = installManager;
 
@@ -69,6 +73,24 @@ export function InstancesView({ installManager }: InstancesViewProps) {
     loaderToInstall,
     versionToInstall,
   );
+
+  useEffect(() => {
+    const unlistenStatus = listen<string>("launch-status", (event) => {
+      setLaunchStatus(event.payload);
+    });
+    const unlistenProgress = listen<InstallProgressPayload>("launch-progress", (event) => {
+      setLaunchProgress({
+        downloadedBytes: event.payload.downloaded_bytes,
+        totalBytes: event.payload.total_bytes,
+        filesDone: event.payload.files_done,
+        filesTotal: event.payload.files_total,
+      });
+    });
+    return () => {
+      unlistenStatus.then((f) => f());
+      unlistenProgress.then((f) => f());
+    };
+  }, []);
 
   useEffect(() => {
     if (instances.length > 0 && !instances.some((i) => i.id === selectedInstanceId)) {
@@ -133,6 +155,8 @@ export function InstancesView({ installManager }: InstancesViewProps) {
     if (!selectedInstanceId || launching) return;
     setLaunching(true);
     setLaunchError(null);
+    setLaunchStatus("Getting ready…");
+    setLaunchProgress(null);
     try {
       await invoke("launch_instance", {
         versionId: selectedInstanceId,
@@ -145,6 +169,8 @@ export function InstancesView({ installManager }: InstancesViewProps) {
       setLaunchError(String(err));
     } finally {
       setLaunching(false);
+      setLaunchStatus(null);
+      setLaunchProgress(null);
     }
   }
 
@@ -152,6 +178,7 @@ export function InstancesView({ installManager }: InstancesViewProps) {
 
   return (
     <section className="view instances-view">
+      {launching && <LaunchOverlay status={launchStatus ?? "Launching…"} progress={launchProgress} />}
       <div className="view-header">
         <h1>Instances</h1>
         <div className="view-subtitle">Downloaded Minecraft versions, ready to play.</div>

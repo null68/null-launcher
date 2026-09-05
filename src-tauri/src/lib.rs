@@ -4,7 +4,7 @@ mod minecraft;
 use std::str::FromStr;
 use std::sync::Mutex;
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Listener, Manager, State};
 
 use crate::launcher::asset_orchestrator::install_version as install_version_impl;
 use crate::launcher::instances::{list_instances as list_instances_impl, Instance};
@@ -177,6 +177,22 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .manage(InstallLock(Mutex::new(None)))
+        .setup(|app| {
+            let handle = app.handle().clone();
+            if let Some(window) = handle.get_webview_window("main") {
+                let ready_window = window.clone();
+                handle.once("app-ready", move |_event| {
+                    let _ = ready_window.show();
+                });
+
+                // safety net
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    let _ = window.show();
+                });
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_versions,
             install_version,

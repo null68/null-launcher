@@ -12,9 +12,11 @@ use std::{
 
 use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 
+use crate::launcher::asset_orchestrator::verify_instance_files;
 use crate::launcher::download::DownloadObject;
 use crate::launcher::minecraft_dir::get_minecraft_dir;
 use crate::minecraft::client_json::{read_client_json_from_disk, resolve_client_json};
+use crate::minecraft::java_runtime;
 use crate::minecraft::maven::resolve_library_artifact;
 use crate::minecraft::{
     client_json::{Argument, ArgumentValue, ClientJson},
@@ -83,7 +85,8 @@ fn parse_java_major_version(banner: &str) -> Option<u32> {
     digits.parse().ok()
 }
 
-pub fn find_compatible_java(
+pub async fn find_compatible_java(
+    app: &AppHandle,
     minecraft_dir: &Path,
     component: &str,
     required_major: u32,
@@ -94,29 +97,25 @@ pub fn find_compatible_java(
         find_java_on_path(),
     ];
 
-    let mut closest_mismatch: Option<(String, u32)> = None;
     for candidate in candidates.into_iter().flatten() {
-        match java_major_version(&candidate) {
-            Some(major) if major == required_major => return Ok(candidate),
-            Some(major) => {
-                closest_mismatch.get_or_insert((candidate, major));
-            }
-            None => {}
+        if java_major_version(&candidate) == Some(required_major) {
+            return Ok(candidate);
         }
     }
 
-    match closest_mismatch {
-        Some((path, major)) => Err(format!(
-            "This version needs Java {required_major}, but only Java {major} was found ({path}). \
-             Bundling a matching runtime automatically isn't implemented yet - install Java {required_major} \
-             and make sure it's on PATH, or point JAVA_HOME at it."
-        )),
-        None => Err(
-            "No Java installation found (checked JAVA_HOME and PATH). Install Java and make sure \
-             it's on PATH, or set JAVA_HOME."
-                .to_string(),
-        ),
-    }
+    // Nothing already on this machine matches - fetch Mojang's own build for this
+    // component (same as the official launcher does), so every Minecraft version
+    // gets the Java release it actually needs without the user juggling installs.
+    java_runtime::ensure_java_runtime(minecraft_dir, component, app)
+        .await
+        .map(|path| path.display().to_string())
+        .map_err(|e| {
+            format!(
+                "This version needs Java {required_major}, and null-launcher couldn't fetch a \
+                 matching runtime automatically ({e}). Install Java {required_major} yourself and \
+                 make sure it's on PATH, or point JAVA_HOME at it."
+            )
+        })
 }
 
 fn open_terminal_window(app: &AppHandle) {
@@ -293,6 +292,9 @@ pub async fn launch_instance(
         .unwrap_or_else(|| version_id.to_string());
     let client_json = resolve_client_json(&minecraft_dir, version_id).await?;
 
+    let _ = app.emit("launch-status", "Checking game files…");
+    verify_instance_files(app, &client_json, &base_id).await?;
+
     let required_major = client_json
         .java_version
         .as_ref()
@@ -303,7 +305,8 @@ pub async fn launch_instance(
         .as_ref()
         .map(|j| j.component.as_str())
         .unwrap_or("jre-legacy");
-    let java = find_compatible_java(&minecraft_dir, component, required_major)?;
+    let _ = app.emit("launch-status", "Preparing Java…");
+    let java = find_compatible_java(app, &minecraft_dir, component, required_major).await?;
 
     let features: HashMap<String, bool> = HashMap::new();
 
@@ -426,6 +429,8 @@ pub async fn launch_instance(
         .args(&jvm_args)
         .arg(&main_class)
         .args(&game_args);
+
+    let _ = app.emit("launch-status", "Starting Minecraft…");
 
     let child = if terminal_mode {
         open_terminal_window(app);
