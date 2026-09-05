@@ -1,6 +1,6 @@
 [package]
 name = "null-launcher"
-version = "0.2.1"
+version = "0.2.2"
 description = "Simplest minecraft launcher possible (offline mode only)"
 authors = ["null68"]
 edition = "2021"
