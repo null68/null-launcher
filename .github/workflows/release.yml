@@ -17,6 +17,7 @@ jobs:
 
     outputs:
       version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.commit.outputs.sha }}
 
     steps:
       - name: Checkout repository
@@ -38,6 +39,7 @@ jobs:
           set -euo pipefail
 
           LAST_TAG=$(git tag --list 'v*' --sort=-version:refname | head -n 1)
+          BUMP="n/a (first release)"
 
           if [ -z "$LAST_TAG" ]; then
             echo "No previous release tag found."
@@ -74,11 +76,44 @@ jobs:
               exit 1
             fi
 
-            PATCH=$((PATCH + 1))
+            BUMP="patch"
+
+            while IFS= read -r SUBJECT; do
+              LOWER=$(printf '%s' "$SUBJECT" | tr '[:upper:]' '[:lower:]')
+
+              if [[ "$LOWER" =~ ^breaking(\([a-z0-9_-]+\))?: ]] || \
+                 [[ "$LOWER" =~ ^[a-z]+(\([a-z0-9_-]+\))?!: ]]; then
+                BUMP="major"
+              elif [ "$BUMP" != "major" ] && \
+                   [[ "$LOWER" =~ ^feat(\([a-z0-9_-]+\))?: ]]; then
+                BUMP="minor"
+              fi
+            done < <(git log "${LAST_TAG}..HEAD" --format='%s')
+
+            if git log "${LAST_TAG}..HEAD" --format='%b' \
+              | grep -qi '^breaking[ -]change:'; then
+              BUMP="major"
+            fi
+
+            case "$BUMP" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              *)
+                PATCH=$((PATCH + 1))
+                ;;
+            esac
 
             VERSION="${MAJOR}.${MINOR}.${PATCH}"
           fi
 
+          echo "Bump type: $BUMP"
           echo "Next version: $VERSION"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -151,13 +186,22 @@ jobs:
           );
           NODE
 
+      - name: Import GPG key
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        uses: crazy-max/ghaction-import-gpg@v7
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
       - name: Commit version changes
+        id: commit
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "null68"
+          git config user.email "41439673+null68@users.noreply.github.com"
 
           git add \
             src-tauri/tauri.conf.json \
@@ -169,6 +213,8 @@ jobs:
             || echo "No changes to commit"
 
           git push
+
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   release:
     name: Build release
@@ -190,6 +236,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.prepare.outputs.sha }}
           fetch-depth: 0
           fetch-tags: true
 
