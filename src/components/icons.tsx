@@ -118,3 +118,13 @@ export function CopyIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function UpdateIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 16.5a4 4 0 0 1-.5-7.97 5 5 0 0 1 9.66-1.79A4.5 4.5 0 0 1 17.5 16.5" />
+      <path d="M12 10.5v7" />
+      <path d="M9 15L12 18L15 15" />
+    </svg>
+  );
+}

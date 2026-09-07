@@ -120,8 +120,24 @@ li + li > .nav-item { margin-top: 2px; }
   50% { opacity: 0.35; }
 }
 
-.sidebar-foot {
+.sidebar-bottom {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.update-item[disabled] { cursor: default; opacity: 0.7; }
+.update-item.has-update { color: var(--oxide); }
+.update-item.has-update:hover { background: var(--oxide-dim); color: var(--oxide); }
+.update-item svg.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.update-badge { background: var(--oxide); }
+
+.sidebar-foot {
   padding: 0 10px;
   font-size: 11px;
   color: var(--text-faint);

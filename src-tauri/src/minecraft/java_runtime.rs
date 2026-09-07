@@ -1,8 +1,8 @@
 use std::{
     collections::HashMap,
     error::Error,
+    fs,
     path::{Path, PathBuf},
-    fs
 };
 
 use reqwest::Client;
