@@ -3,16 +3,19 @@ import { useSettings } from "../hooks/useSettings";
 import "../styles/SettingsView.css";
 
 const MEM_MIN = 512;
-const MEM_MAX = 16384;
 const MEM_STEP = 256;
-const MEM_SCALE_MAX = 16384;
 
 function formatMb(mb: number): string {
   return `${mb} MB`;
 }
 
+function formatGb(mb: number): string {
+  const gb = mb / 1024;
+  return `${gb % 1 === 0 ? gb : gb.toFixed(1)} GB`;
+}
+
 export function SettingsView() {
-  const { settings, update } = useSettings();
+  const { settings, update, maxMemoryMb } = useSettings();
 
   function handleUsername(e: ChangeEvent<HTMLInputElement>) {
     update({ username: e.target.value });
@@ -28,8 +31,8 @@ export function SettingsView() {
     update({ maxMemoryMb: value, minMemoryMb: Math.min(value, settings.minMemoryMb) });
   }
 
-  const barLeft = (settings.minMemoryMb / MEM_SCALE_MAX) * 100;
-  const barWidth = ((settings.maxMemoryMb - settings.minMemoryMb) / MEM_SCALE_MAX) * 100;
+  const barLeft = (settings.minMemoryMb / maxMemoryMb) * 100;
+  const barWidth = ((settings.maxMemoryMb - settings.minMemoryMb) / maxMemoryMb) * 100;
 
   return (
     <section className="view settings-view">
@@ -73,7 +76,7 @@ export function SettingsView() {
           <input
             type="range"
             min={MEM_MIN}
-            max={MEM_MAX}
+            max={maxMemoryMb}
             step={MEM_STEP}
             value={settings.minMemoryMb}
             onChange={handleMin}
@@ -91,7 +94,7 @@ export function SettingsView() {
           <input
             type="range"
             min={MEM_MIN}
-            max={MEM_MAX}
+            max={maxMemoryMb}
             step={MEM_STEP}
             value={settings.maxMemoryMb}
             onChange={handleMax}
@@ -103,11 +106,9 @@ export function SettingsView() {
           <div className="mem-bar-fill" style={{ left: `${barLeft}%`, width: `${barWidth}%` }} />
         </div>
         <div className="mem-ticks" aria-hidden="true">
-          <span>0</span>
-          <span>4 GB</span>
-          <span>8 GB</span>
-          <span>12 GB</span>
-          <span>16 GB</span>
+          {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+             <span key={f}>{f === 0 ? "0" : formatGb(maxMemoryMb * f)}</span>
+          ))}
         </div>
       </div>
 

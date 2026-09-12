@@ -9,10 +9,20 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   terminalMode: false,
 };
 
+const FALLBACK_MAX_MEMORY_MB = 4096;
 const SAVE_DEBOUNCE_MS = 400;
 
 export function useSettings() {
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS);
+  const [maxMemoryMb, setMaxMemoryMb] = useState(FALLBACK_MAX_MEMORY_MB);
+
+  (async () => {
+       try {
+          const systemMb = await invoke<number>("get_system_memory_mb");
+          if (systemMb) setMaxMemoryMb(systemMb);
+        } catch {}
+  })();
+
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -38,5 +48,5 @@ export function useSettings() {
     });
   }, []);
 
-  return { settings, update };
+  return { settings, update, maxMemoryMb };
 }

@@ -8,7 +8,7 @@ use tauri::{AppHandle, Listener, Manager, State};
 
 use crate::launcher::asset_orchestrator::install_version as install_version_impl;
 use crate::launcher::instances::{list_instances as list_instances_impl, Instance};
-use crate::launcher::runtime::launch_instance as launch_instance_impl;
+use crate::launcher::runtime::{launch_instance as launch_instance_impl, total_system_memory_mb};
 use crate::launcher::screenshots::{list_screenshots as list_screenshots_impl, Screenshot};
 use crate::launcher::settings::{
     get_settings as get_settings_impl, save_settings as save_settings_impl, LauncherSettings,
@@ -113,6 +113,11 @@ fn save_settings(settings: LauncherSettings) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_system_memory_mb() -> u64 {
+    total_system_memory_mb()
+}
+
+#[tauri::command]
 async fn list_loader_versions(loader: String, game_version: String) -> Result<Vec<String>, String> {
     let loader = Loader::from_str(&loader)?;
     let result = match loader {
@@ -204,7 +209,8 @@ pub fn run() {
             list_loader_versions,
             install_modded_instance,
             get_settings,
-            save_settings
+            save_settings,
+            get_system_memory_mb
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

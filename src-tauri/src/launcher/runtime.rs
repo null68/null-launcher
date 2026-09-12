@@ -9,6 +9,7 @@ use std::{
     error::Error,
     path::{Path, PathBuf},
 };
+use sysinfo::System;
 
 use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 
@@ -85,6 +86,15 @@ fn parse_java_major_version(banner: &str) -> Option<u32> {
     digits.parse().ok()
 }
 
+pub fn total_system_memory_mb() -> u64 {
+    let mut sys = System::new();
+    sys.refresh_memory();
+    match sys.total_memory() {
+        0 => 4096, // fallback
+        bytes => bytes / 1024 / 1024,
+    }
+}
+
 pub async fn find_compatible_java(
     app: &AppHandle,
     minecraft_dir: &Path,
@@ -103,9 +113,6 @@ pub async fn find_compatible_java(
         }
     }
 
-    // Nothing already on this machine matches - fetch Mojang's own build for this
-    // component (same as the official launcher does), so every Minecraft version
-    // gets the Java release it actually needs without the user juggling installs.
     java_runtime::ensure_java_runtime(minecraft_dir, component, app)
         .await
         .map(|path| path.display().to_string())
