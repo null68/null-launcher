@@ -86,7 +86,7 @@ async fn launch_instance(
 ) -> Result<u32, String> {
     let username = username
         .filter(|u| !u.trim().is_empty())
-        .unwrap_or_else(|| "Player".to_string());
+        .unwrap_or_else(|| "Steve".to_string());
 
     let child = launch_instance_impl(
         &app,

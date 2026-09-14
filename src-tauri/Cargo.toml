@@ -33,6 +33,7 @@ zip = "8.6.0"
 md-5 = "0.11.0"
 tauri-plugin-process = "2"
 sysinfo = { version = "0.39", default-features = false, features = ["system"] }
+tokio = "1.53.1"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
