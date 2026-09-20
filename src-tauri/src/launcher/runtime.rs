@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use md5::Md5;
 use sha1::Digest;
 use std::fs::{self, File};
@@ -14,7 +15,6 @@ use sysinfo::System;
 use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::launcher::asset_orchestrator::verify_instance_files;
-use crate::launcher::download::DownloadObject;
 use crate::launcher::minecraft_dir::get_minecraft_dir;
 use crate::minecraft::client_json::{read_client_json_from_disk, resolve_client_json};
 use crate::minecraft::java_runtime;
@@ -25,6 +25,21 @@ use crate::minecraft::{
 };
 
 const TERMINAL_WINDOW_LABEL: &str = "terminal";
+
+const FALLBACK_LOG4J_CONFIG: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="SysOut" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%d{HH:mm:ss}] [%t/%level]: %msg{nolookups}%n" />
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="SysOut"/>
+        </Root>
+    </Loggers>
+</Configuration>
+"#;
 
 #[cfg(target_os = "windows")]
 fn find_java_on_path() -> Option<String> {
@@ -398,25 +413,18 @@ pub async fn launch_instance(
         }
     }
 
-    if let Some(logging) = &client_json.logging {
-        let relative_path = PathBuf::from("assets")
-            .join("log_configs")
-            .join(&logging.client.file.id);
-        let download = DownloadObject {
-            url: logging.client.file.url.clone(),
-            size: Some(logging.client.file.size),
-            sha1: Some(logging.client.file.sha1.clone()),
-            file_path: relative_path.clone(),
-        };
-        download.download_file(|_| {}).await?;
-
-        let mut log_values: HashMap<&str, String> = HashMap::new();
-        log_values.insert(
-            "path",
-            minecraft_dir.join(&relative_path).display().to_string(),
-        );
-        jvm_args.push(substitute(&logging.client.argument, &log_values));
+    let log_config_path = minecraft_dir
+        .join("assets")
+        .join("log_configs")
+        .join("null-launcher.xml");
+    if let Some(parent) = log_config_path.parent() {
+        fs::create_dir_all(parent)?;
     }
+    fs::write(&log_config_path, FALLBACK_LOG4J_CONFIG)?;
+    jvm_args.push(format!(
+        "-Dlog4j.configurationFile={}",
+        log_config_path.display()
+    ));
 
     if let Some(min) = min_memory_mb {
         jvm_args.push(format!("-Xms{min}M"));
