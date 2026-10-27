@@ -4,11 +4,14 @@ mod minecraft;
 use std::str::FromStr;
 use std::sync::Mutex;
 
+use tauri::ipc::Channel;
 use tauri::{AppHandle, Listener, Manager, State};
 
 use crate::launcher::asset_orchestrator::install_version as install_version_impl;
 use crate::launcher::instances::{list_instances as list_instances_impl, Instance};
-use crate::launcher::runtime::{launch_instance as launch_instance_impl, total_system_memory_mb};
+use crate::launcher::runtime::{
+    launch_instance as launch_instance_impl, total_system_memory_mb, Console,
+};
 use crate::launcher::screenshots::{list_screenshots as list_screenshots_impl, Screenshot};
 use crate::launcher::settings::{
     get_settings as get_settings_impl, save_settings as save_settings_impl, LauncherSettings,
@@ -103,6 +106,15 @@ async fn launch_instance(
 }
 
 #[tauri::command]
+async fn console_attach(
+    console: State<'_, Console>,
+    on_line: Channel<String>,
+) -> Result<(), String> {
+    console.attach(on_line);
+    Ok(())
+}
+
+#[tauri::command]
 fn get_settings() -> Result<Option<LauncherSettings>, String> {
     get_settings_impl().map_err(|e| e.to_string())
 }
@@ -184,6 +196,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .manage(InstallLock(Mutex::new(None)))
+        .manage(Console::default())
         .setup(|app| {
             let handle = app.handle().clone();
             if let Some(window) = handle.get_webview_window("main") {
@@ -208,6 +221,7 @@ pub fn run() {
             launch_instance,
             list_loader_versions,
             install_modded_instance,
+            console_attach,
             get_settings,
             save_settings,
             get_system_memory_mb

@@ -4,15 +4,16 @@ use sha1::Digest;
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
-use std::time::Duration;
+use std::sync::Mutex;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     error::Error,
     path::{Path, PathBuf},
 };
 use sysinfo::System;
 
-use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::ipc::Channel;
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::launcher::asset_orchestrator::verify_instance_files;
 use crate::launcher::minecraft_dir::get_minecraft_dir;
@@ -25,6 +26,37 @@ use crate::minecraft::{
 };
 
 const TERMINAL_WINDOW_LABEL: &str = "terminal";
+const CONSOLE_MAX_LINES: usize = 4000;
+
+#[derive(Default)]
+pub struct Console(Mutex<ConsoleInner>);
+
+#[derive(Default)]
+struct ConsoleInner {
+    backlog: VecDeque<String>,
+    sink: Option<Channel<String>>,
+}
+
+impl Console {
+    pub fn push(&self, line: String) {
+        let mut inner = self.0.lock().unwrap();
+        if inner.backlog.len() == CONSOLE_MAX_LINES {
+            inner.backlog.pop_front();
+        }
+        inner.backlog.push_back(line.clone());
+        if inner.sink.as_ref().is_some_and(|ch| ch.send(line).is_err()) {
+            inner.sink = None;
+        }
+    }
+
+    pub fn attach(&self, channel: Channel<String>) {
+        let mut inner = self.0.lock().unwrap();
+        for line in &inner.backlog {
+            let _ = channel.send(line.clone());
+        }
+        inner.sink = Some(channel);
+    }
+}
 
 const FALLBACK_LOG4J_CONFIG: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
@@ -140,56 +172,37 @@ pub async fn find_compatible_java(
         })
 }
 
-fn open_terminal_window(app: &AppHandle) {
+fn open_terminal_window(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(TERMINAL_WINDOW_LABEL) {
         let _ = window.set_focus();
-        let _ = app.emit_to(
-            TERMINAL_WINDOW_LABEL,
-            "mc-log",
-            "\n── new launch ──\n".to_string(),
-        );
-        return;
+        app.state::<Console>().push("\n── new launch ──\n".into());
+        return Ok(());
     }
 
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<()>();
-    app.once("terminal-ready", move |_event| {
-        let _ = ready_tx.send(());
-    });
-
-    let built = WebviewWindowBuilder::new(
+    WebviewWindowBuilder::new(
         app,
         TERMINAL_WINDOW_LABEL,
         WebviewUrl::App("index.html#terminal".into()),
     )
     .title("null-launcher — Console")
     .inner_size(760.0, 460.0)
-    .build();
-
-    if built.is_ok() {
-        let _ = ready_rx.recv_timeout(Duration::from_secs(3));
-    }
+    .build()
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
-fn stream_to_terminal(
-    app: AppHandle,
-    stdout: Option<std::process::ChildStdout>,
-    stderr: Option<std::process::ChildStderr>,
-) {
-    if let Some(stdout) = stdout {
-        let app = app.clone();
-        std::thread::spawn(move || {
-            for line in BufReader::new(stdout).lines().flatten() {
-                let _ = app.emit_to(TERMINAL_WINDOW_LABEL, "mc-log", line);
-            }
-        });
-    }
-    if let Some(stderr) = stderr {
-        std::thread::spawn(move || {
-            for line in BufReader::new(stderr).lines().flatten() {
-                let _ = app.emit_to(TERMINAL_WINDOW_LABEL, "mc-log", line);
-            }
-        });
-    }
+fn pump<R: io::Read + Send + 'static>(app: AppHandle, stream: Option<R>) {
+    let Some(stream) = stream else { return };
+    std::thread::spawn(move || {
+        let console = app.state::<Console>();
+        for line in BufReader::new(stream).split(b'\n').map_while(Result::ok) {
+            console.push(
+                String::from_utf8_lossy(&line)
+                    .trim_end_matches('\r')
+                    .to_owned(),
+            );
+        }
+    });
 }
 
 fn offline_uuid(username: &str) -> String {
@@ -300,6 +313,36 @@ fn extract_natives(
 }
 
 pub async fn launch_instance(
+    app: &AppHandle,
+    version_id: &str,
+    username: &str,
+    terminal_mode: bool,
+    min_memory_mb: Option<u32>,
+    max_memory_mb: Option<u32>,
+) -> Result<Child, Box<dyn Error>> {
+    if terminal_mode {
+        open_terminal_window(app).map_err(|e| format!("Console window failed: {e}"))?;
+    }
+
+    let res = launch_inner(
+        app,
+        version_id,
+        username,
+        terminal_mode,
+        min_memory_mb,
+        max_memory_mb,
+    )
+    .await;
+
+    if terminal_mode {
+        if let Err(e) = &res {
+            app.state::<Console>().push(format!("[launcher] {e}"));
+        }
+    }
+    res
+}
+
+async fn launch_inner(
     app: &AppHandle,
     version_id: &str,
     username: &str,
@@ -448,12 +491,12 @@ pub async fn launch_instance(
     let _ = app.emit("launch-status", "Starting Minecraft…");
 
     let child = if terminal_mode {
-        open_terminal_window(app);
         let mut child = command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
-        stream_to_terminal(app.clone(), child.stdout.take(), child.stderr.take());
+        pump(app.clone(), child.stdout.take());
+        pump(app.clone(), child.stderr.take());
         child
     } else {
         command

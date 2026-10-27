@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { emit, listen } from "@tauri-apps/api/event";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 import "../styles/tokens.css";
 import "../styles/global.css";
@@ -12,15 +12,17 @@ export function TerminalWindow() {
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unlisten = listen<string>("mc-log", (event) => {
+    setLines([]); // the backlog is always replayed in full on attach
+    const channel = new Channel<string>();
+    channel.onmessage = (line) => {
       setLines((prev) => {
-        const next = [...prev, event.payload];
+        const next = [...prev, line];
         return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
       });
-    });
-    emit("terminal-ready");
+    };
+    invoke("console_attach", { onLine: channel });
     return () => {
-      unlisten.then((f) => f());
+      channel.onmessage = () => {};
     };
   }, []);
 
